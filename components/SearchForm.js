@@ -6,7 +6,7 @@ import { getPopularLocations } from '../lib/jobApi';
 export default function SearchForm({ initialValues = {} }) {
   const router = useRouter();
   const [q, setQ] = useState(initialValues.q || '');
-  const [location, setLocation] = useState(initialValues.location || '');
+  const [location, setLocation] = useState(initialValues.municipality || '');
   const [isRemote, setIsRemote] = useState(initialValues.remote === 'true');
   const [isAbroad, setIsAbroad] = useState(initialValues.abroad === 'true');
   
@@ -19,28 +19,43 @@ export default function SearchForm({ initialValues = {} }) {
     // Build query params, removing empty values
     const params = {};
     
-    // Only add non-empty values for search query
+    // Only add non-empty values
     if (q.trim()) {
       params.q = q.trim();
     }
     
-    // Handle location search - use EITHER municipality code OR add to free text
+    // Handle location - check if it's a known municipality code or name
     if (location.trim()) {
-      // Try to match a known municipality code
+      // Try to find a matching location from our popular locations
       const matchedLocation = popularLocations.find(
         loc => loc.name.toLowerCase() === location.trim().toLowerCase()
       );
       
-      if (matchedLocation && matchedLocation.code) {
-        // If we found a match with a code, use the code as municipality
-        params.municipality = matchedLocation.code;
-      } else {
-        // For unknown locations, add it to the q parameter
-        if (params.q) {
-          params.q = `${params.q} ${location.trim()}`;
+      if (matchedLocation) {
+        // For Stockholm, we know the code works better
+        if (matchedLocation.name === 'Stockholm') {
+          params.municipality = matchedLocation.code; // Use code (0180) for Stockholm
+        } 
+        // For other locations, prefer concept ID if available, fall back to code
+        else if (matchedLocation.conceptId) {
+          params.municipality = matchedLocation.conceptId;
+        } else if (matchedLocation.code) {
+          params.municipality = matchedLocation.code;
         } else {
-          params.q = location.trim();
+          params.municipality = location.trim();
         }
+        
+        // Add debugging in dev mode
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Matched location: ${matchedLocation.name}`, {
+            code: matchedLocation.code,
+            conceptId: matchedLocation.conceptId,
+            using: params.municipality
+          });
+        }
+      } else {
+        // Otherwise, just pass the raw text as municipality
+        params.municipality = location.trim();
       }
     }
     
