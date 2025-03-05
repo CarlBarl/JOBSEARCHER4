@@ -2,27 +2,21 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
-import { getJobLogoUrl, isValidLogo } from '../lib/jobApi';
+import { getJobLogoUrl } from '../lib/jobApi';
 
 export default function JobCard({ job }) {
   const datePublished = job.publication_date ? new Date(job.publication_date).toLocaleDateString('sv-SE') : 'Unknown date';
   const [imgSrc, setImgSrc] = useState('/file.svg');
+  const [imgLoaded, setImgLoaded] = useState(false);
   
   useEffect(() => {
-    const checkAndSetLogo = async () => {
-      if (!job || !job.id) return;
-      
-      // Get logo URL based on job ID
+    // Simplified logo handling - just try to load it
+    if (job && job.id) {
       const logoUrl = getJobLogoUrl(job.id);
-      
-      // Validate the logo using improved validation function
-      const isValid = await isValidLogo(logoUrl);
-      if (isValid) {
+      if (logoUrl) {
         setImgSrc(logoUrl);
       }
-    };
-    
-    checkAndSetLogo();
+    }
   }, [job]);
   
   // Safety check for malformed job data
@@ -92,10 +86,12 @@ export default function JobCard({ job }) {
               width={56}
               height={56}
               className="object-contain p-1"
+              onLoad={() => setImgLoaded(true)}
               onError={() => {
-                setImgSrc('/file.svg'); // Use a local fallback image
+                // On error, set back to default logo
+                setImgSrc('/file.svg');
               }}
-              unoptimized // Skip image optimization for external URLs that might fail
+              unoptimized // Skip image optimization for external URLs
             />
           </div>
           

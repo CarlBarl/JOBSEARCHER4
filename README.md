@@ -1,6 +1,6 @@
 # Student Job Platform
 
-A Next.js application that helps students find job opportunities across Sweden. This platform integrates with the Swedish JobTech API to provide a tailored job search experience for students looking for part-time work, internships, and entry-level positions.
+A Next.js application that helps students find job opportunities across Sweden. This platform integrates with both the Swedish JobTech APIs - JobAd API and JobSearch API - to provide a comprehensive job search experience for students looking for part-time work, internships, and entry-level positions.
 
 ## Project Overview
 
@@ -8,12 +8,16 @@ The Student Job Platform is a specialized job search portal that aggregates job 
 
 ### Key Features
 
+- Integrated search using both JobAd API and JobSearch API for maximum job coverage
+- API selection option allowing users to choose which API(s) to use
 - Search jobs with filters for location, remote work, and job type
+- Typeahead suggestions for better search assistance
+- Geolocation-based search for finding jobs near you
 - View detailed job listings with company information
-- Infinite scroll pagination for search results
+- Visual distinction between jobs from different API sources
 - Responsive design for all device sizes
 - Quick search categories for common student job types
-- Company logo display when available
+- Fallback mechanisms if one API fails or doesn't have specific data
 
 ## Technical Architecture
 
@@ -21,15 +25,16 @@ The Student Job Platform is a specialized job search portal that aggregates job 
 
 - **Frontend**: Next.js with React (Pages Router)
 - **Styling**: Tailwind CSS
-- **API Integration**: Swedish JobTech Search API
+- **API Integration**: Swedish JobTech APIs (JobAd API and JobSearch API)
 - **Deployment**: Compatible with Vercel
 
 ### Core Components
 
-- **Search System**: Full-text search with filtering capabilities
-- **Job Detail Views**: Detailed job information display
+- **Dual API Integration**: Combined search across both JobAd API and JobSearch API
+- **Search System**: Full-text search with filtering capabilities and typeahead
+- **Job Detail Views**: Detailed job information display with API source identification
 - **Component Library**: Reusable UI components (JobCard, SearchForm, etc.)
-- **API Client**: Wrapper for the JobTech API with error handling
+- **Advanced Search Functions**: Specialized searches for student-specific job types
 
 ## Getting Started
 
@@ -70,12 +75,13 @@ student-job-platform/
 ├── components/           # Reusable UI components
 │   ├── Footer.js         # Footer component
 │   ├── Header.js         # Header/navigation component
-│   ├── JobCard.js        # Card for displaying job listings
+│   ├── JobCard.js        # Card for displaying job listings with API source indicator
 │   ├── Layout.js         # Main page layout wrapper
-│   └── SearchForm.js     # Job search form
+│   └── SearchForm.js     # Enhanced job search form with API selection
 │
 ├── lib/                  # Utility functions and API clients
-│   └── jobApi.js         # JobTech API client with search functions
+│   ├── jobApi.js         # Integrated JobTech API client (JobAd + JobSearch)
+│   └── advancedSearch.js # Specialized search functions for student jobs
 │
 ├── pages/                # Next.js pages
 │   ├── _app.js           # Next.js App component
@@ -83,12 +89,12 @@ student-job-platform/
 │   ├── 404.js            # Custom 404 page
 │   ├── about.js          # About page
 │   ├── index.js          # Homepage
-│   ├── search.js         # Search results page
+│   ├── search.js         # Enhanced search results page with API source indicators
 │   ├── tips.js           # Job search tips page
 │   ├── api/              # API routes
 │   │   └── hello.js      # Example API route
 │   └── job/              # Job details pages
-│       └── [id].js       # Dynamic job detail page
+│       └── [id].js       # Dynamic job detail page with dual-API support
 │
 ├── public/               # Static assets
 │   ├── favicon.ico
@@ -108,206 +114,153 @@ student-job-platform/
 
 ### JobTech API Overview
 
-The project integrates with the Swedish JobTech API, which provides job listings from across Sweden. The API includes data from the Swedish Public Employment Service (Arbetsförmedlingen) and other major job boards.
+The project now integrates with two Swedish JobTech APIs:
 
-Key API endpoints:
-- `https://links.api.jobtechdev.se/joblinks` - Search for jobs
-- `https://links.api.jobtechdev.se/ad/{id}` - Get details for a specific job
+1. **JobAd API**
+   - Base URL: `https://links.api.jobtechdev.se`
+   - Contains job ads from multiple sources across Sweden
+   - Updated daily with fresh listings
+
+2. **JobSearch API**
+   - Base URL: `https://jobsearch.api.jobtechdev.se`
+   - The original job search API from Arbetsförmedlingen
+   - Contains some listings that may not be in the JobAd API
+
+By using both APIs, the platform provides the most comprehensive job coverage possible.
 
 ### API Client Implementation
 
 The API client is implemented in `lib/jobApi.js` and provides the following key functionality:
 
-#### Search Jobs
+#### Unified Search Across Both APIs
 
 ```javascript
-export async function searchJobs({
-  query = '',
-  location = '',
-  remote = false,
-  occupationField = '',
-  occupationGroup = '',
-  municipality = '',
-  region = '',
-  country = '',
-  employer = '',
-  publishedAfter = '',
-  sort = 'relevance-desc',
-  limit = 20,
-  offset = 0
+export async function searchAllJobs({
+  q = '',                   // Free text search query
+  occupationField = '',     // Concept ID for occupation field
+  occupationGroup = '',     // Concept ID for occupation group
+  municipality = '',        // Concept ID or code for municipality
+  region = '',              // Concept ID or code for region
+  // ... other parameters
+  useApis = 'both'          // Which APIs to use: 'jobad', 'jobsearch', or 'both'
 } = {}) {
   // Implementation details...
 }
 ```
 
-This function constructs a search query based on the provided parameters and sends a request to the JobTech API. It handles:
-- Building the search query string
-- Adding geographic filters (municipality, region, country)
-- Adding occupation filters
-- Adding employer and date filters
-- Pagination parameters
-- Error handling and response formatting
+This function sends parallel requests to both APIs, combines and deduplicates the results, and returns a unified data format.
 
-#### Get Job Details
+#### Individual API Search Functions
+
+```javascript
+export async function searchJobAdAPI({...}) {...}
+export async function searchJobSearchAPI({...}) {...}
+```
+
+These functions allow searching each API individually when needed.
+
+#### Typeahead Suggestions from Both APIs
+
+```javascript
+export async function getTypeaheadSuggestions(q, useApis = 'both') {...}
+```
+
+Gets autocomplete suggestions from both APIs and combines the results for improved search assistance.
+
+#### Enhanced Job Details
 
 ```javascript
 export async function getJobById(id) {
-  // Implementation details...
+  // Try JobAd API first, fall back to JobSearch API if needed
 }
 ```
 
-Retrieves detailed information about a specific job listing by ID, with error handling.
+Tries to fetch job details from both APIs, using a fallback mechanism if one API doesn't have the job.
 
-#### Job Logo Management
+#### Advanced Search Functions
+
+Located in `lib/advancedSearch.js`, these functions provide specialized searches for student-specific needs:
 
 ```javascript
-export function getJobLogoUrl(id) {
-  // Implementation details...
-}
-
-export async function isValidLogo(imageUrl) {
-  // Implementation details...
-}
+export async function searchStudentJobs({...}) {...}
+export async function findInternships({...}) {...}
+export async function findRecentGraduateJobs({...}) {...}
+export async function findSeasonalJobs({...}) {...}
+export async function findFlexibleHourJobs({...}) {...}
+export async function findNoExperienceJobs({...}) {...}
 ```
 
-These functions handle the retrieval and validation of company logos from the API.
+These functions leverage both APIs to find specific types of jobs relevant to students.
 
-#### Other Helper Functions
+### Key UI Enhancements
 
-- `getPopularLocations()` - Returns common Swedish locations with their codes
-- `getStudentJobCategories()` - Returns job categories relevant to students
-- `getOccupationFields()` - Returns major occupation fields for filtering
-- `formatPublishedAfterDate()` - Formats dates for the API parameters
-- `getStudentJobPresets()` - Returns preset search configurations for quick access buttons
+#### SearchForm (`components/SearchForm.js`)
 
-### API Usage in Pages
+The search form now includes:
+- API selection dropdown to choose which API(s) to use
+- Typeahead suggestions as you type
+- Geolocation button to find jobs near you
+- Enhanced filters for remote work and abroad options
+
+#### JobCard (`components/JobCard.js`)
+
+Job cards now include:
+- Visual indicator of which API provided the job data
+- Fallback mechanism for logos if one API doesn't have them
+- Better handling of different data formats from each API
 
 #### Search Page (`pages/search.js`)
 
-The search page:
-1. Receives search parameters from URL query parameters
-2. Calls the `searchJobs()` function with these parameters
-3. Renders job results with pagination using infinite scroll
-4. Provides filtering options via the SearchForm component
+The search page now:
+- Displays which APIs were successfully queried
+- Shows active filters including the API choice
+- Handles combined results from both APIs
+- Provides better error handling if one API fails
 
 #### Job Details Page (`pages/job/[id].js`)
 
-The job details page:
-1. Extracts the job ID from the URL
-2. Calls the `getJobById()` function to fetch detailed job information
-3. Attempts to load the company logo using `getJobLogoUrl()` and `isValidLogo()`
-4. Renders the job details including description, requirements, and application information
+The job details page now:
+- Shows which API provided the job data
+- Tries to fetch job details from both APIs if needed
+- Provides a better display of all available job information
+- Handles the unified data format from both APIs
 
-## Key Concepts
+## Integration Strategy
 
-### Search Parameters
+The platform uses a strategic approach to integrate both APIs:
 
-The search functionality supports various parameters:
-
-- `query`: Free text search for job titles, skills, or companies
-- `location`: Location search (city or region)
-- `remote`: Boolean flag for remote work
-- `occupationField`: Field of work (concept ID)
-- `occupationGroup`: More specific occupation group (concept ID)
-- `municipality`, `region`, `country`: Geographic filters with concept IDs
-- `employer`: Filter by employer name
-- `publishedAfter`: Filter by publication date
-- `sort`: Sort order (relevance-desc, pubdate-desc, etc.)
-- `limit` & `offset`: Pagination parameters
-
-### Concept IDs
-
-The JobTech API uses concept IDs for structured data like:
-- Municipalities (e.g., '0180' for Stockholm)
-- Regions (e.g., '9hXe_F4g_eTG' for Stockholm County)
-- Occupation fields (e.g., 'apaJ_2ja_LuF' for Data/IT)
-
-These IDs are used in API requests for precise filtering.
-
-### Job Data Structure
-
-A typical job object includes:
-
-```javascript
-{
-  id: "job-id",
-  headline: "Job Title",
-  employer: { name: "Company Name", website: "https://example.com" },
-  description: {
-    text: "Plain text description",
-    text_formatted: "<p>HTML formatted description</p>"
-  },
-  workplace_address: {
-    municipality: "Stockholm",
-    region: "Stockholm County",
-    country: "Sweden"
-  },
-  publication_date: "2023-06-01T14:00:00Z",
-  application_deadline: "2023-07-01T23:59:59Z",
-  employment_type: { label: "Full-time" },
-  workinghourstype: { label: "Regular hours" },
-  must_have: { skills: [ {label: "JavaScript"}, ... ] },
-  nice_to_have: { skills: [ {label: "React"}, ... ] }
-}
-```
-
-### Error Handling
-
-API errors are handled at multiple levels:
-1. In the API client (`jobApi.js`) with appropriate error responses
-2. In the UI components with loading states, error messages, and fallbacks
-
-## UI Components
-
-### SearchForm
-
-Located in `components/SearchForm.js`, this component:
-- Provides inputs for job query and location
-- Includes a checkbox for remote work filter
-- Submits search parameters to the `/search` page
-
-### JobCard
-
-Located in `components/JobCard.js`, this component:
-- Displays a summary of a job listing
-- Shows company logo when available
-- Provides basic job information (title, company, location, employment type)
-- Links to the detailed job view
-
-### Layout, Header, Footer
-
-These components provide the page structure and navigation.
+1. **Parallel Requests**: Sends requests to both APIs simultaneously for better performance
+2. **Deduplication**: Removes duplicate job listings based on job ID
+3. **Normalization**: Standardizes data formats from both APIs
+4. **Fallback Mechanisms**: If one API fails or doesn't have certain data, tries the other
+5. **User Choice**: Allows users to choose which API(s) to use based on their needs
 
 ## Development Guidelines
+
+### API Usage Considerations
+
+When working with the dual API integration:
+
+1. **Performance**: Be aware that querying both APIs will increase the load time slightly, but provides more comprehensive results
+2. **Rate Limits**: The combined system respects rate limits for both APIs (typically 1,000 requests per day)
+3. **Caching**: Consider implementing caching for frequently used searches and typeahead suggestions
+4. **Error Handling**: Implement graceful fallbacks if one API is unavailable
 
 ### Adding New Features
 
 When adding new features:
-1. Consider the user flow and how it integrates with existing functionality
+1. Consider which API(s) should be used for the feature
 2. Add any new API functions to `lib/jobApi.js`
-3. Create/update components in the `components` directory
-4. Add/update pages in the `pages` directory
-
-### API Rate Limits
-
-The JobTech API has usage limits:
-- Standard limit is 1,000 requests per day
-- Higher limits require special arrangements with the API team
-- Implement caching when appropriate to reduce API calls
-
-### Best Practices
-
-1. Use the API client functions rather than direct API calls
-2. Handle loading states and errors at the component level
-3. Use concept IDs for structured data when possible
-4. Always link back to the original job posting source
+3. Add specialized search functions to `lib/advancedSearch.js`
+4. Update components to handle the unified data format
 
 ## Resources
 
 ### JobTech API Documentation
 
 - [JobTech Developer Portal](https://jobtechdev.se/en)
-- [JobTech API Swagger UI](https://links.api.jobtechdev.se)
+- [JobAd API Swagger UI](https://links.api.jobtechdev.se)
+- [JobSearch API Swagger UI](https://jobsearch.api.jobtechdev.se)
 - [Taxonomy API](https://jobtechdev.se/en/products/jobtech-taxonomy) (for concept IDs)
 
 ### Development Resources
@@ -330,6 +283,3 @@ Or use Vercel's GitHub integration for automatic deployments.
 ## License
 
 [Include your license information here]
-#   J O B S E A R C H E R 4  
- #   J O B S E A R C H E R 4  
- 
