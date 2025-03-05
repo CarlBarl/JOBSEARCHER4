@@ -32,6 +32,7 @@ export default function JobDetailsPage() {
           return;
         }
         
+        console.log('Job data:', jobData); // Debug log
         setJob(jobData);
         
         // Check for valid logo with updated API function
@@ -51,11 +52,77 @@ export default function JobDetailsPage() {
     fetchJobDetails();
   }, [id]);
   
+  // Get description text - handle both the new API format and legacy format
+  const getDescription = () => {
+    if (!job) return null;
+    
+    if (job.brief) {
+      // New API format has a 'brief' field
+      return job.brief;
+    } else if (typeof job.description === 'string') {
+      // Legacy string format
+      return job.description;
+    } else if (job.description?.text) {
+      // Legacy object format with text property
+      return job.description.text;
+    } else if (job.description?.text_formatted) {
+      // HTML-formatted text (we'll use this with dangerouslySetInnerHTML)
+      return job.description.text_formatted;
+    }
+    return null;
+  };
+
+  // Get source link URLs for applying
+  const getSourceLinks = () => {
+    if (!job) return [];
+    
+    if (job.source_links && job.source_links.length > 0) {
+      return job.source_links;
+    }
+    
+    // Fallback: try to find other URLs in the job data
+    const links = [];
+    
+    if (job.application_details?.url) {
+      links.push({ label: 'Apply', url: job.application_details.url });
+    }
+    
+    if (job.webpage_url) {
+      links.push({ label: 'View Job', url: job.webpage_url });
+    }
+    
+    return links;
+  };
+  
+  // Get workplace address information combining different possible formats
+  const getWorkplaceAddress = () => {
+    if (!job) return null;
+    
+    // Try both singular and plural workplace address formats
+    const address = job.workplace_address || 
+                   (job.workplace_addresses && {
+                     street_address: null,
+                     postcode: null, 
+                     city: null,
+                     municipality: job.workplace_addresses.municipality,
+                     region: job.workplace_addresses.region,
+                     country: job.workplace_addresses.country
+                   });
+    
+    if (!address) return null;
+    
+    return address;
+  };
+  
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'Not specified';
     return new Date(dateString).toLocaleDateString('sv-SE');
   };
+  
+  const sourceLinks = getSourceLinks();
+  const workplaceAddress = getWorkplaceAddress();
+  const description = getDescription();
   
   return (
     <Layout 
@@ -90,7 +157,7 @@ export default function JobDetailsPage() {
       {/* Error State */}
       {!loading && error && (
         <div className="container mx-auto px-4 py-20 text-center">
-          <div className="bg-red-50 text-red-700 p-8 rounded-xl inline-block mx-auto shadow-soft border border-red-100 max-w-lg">
+          <div className="bg-red-100 text-red-700 p-8 rounded-xl inline-block mx-auto shadow-soft border border-red-100 max-w-lg">
             <svg className="w-16 h-16 mx-auto mb-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -134,13 +201,17 @@ export default function JobDetailsPage() {
                   <p className="text-xl text-primary-700 font-medium mb-5">{job.employer?.name || 'Company'}</p>
                   
                   <div className="flex flex-wrap gap-3 mb-5">
-                    {job.workplace_address?.municipality && (
+                    {(workplaceAddress?.municipality || 
+                      job.workplace_addresses?.municipality || 
+                      job.workplace_address?.municipality) && (
                       <span className="inline-flex items-center bg-secondary-50 text-secondary-700 px-3 py-1.5 rounded-full text-sm">
                         <svg className="w-4 h-4 mr-1.5 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        {job.workplace_address.municipality}
+                        {workplaceAddress?.municipality || 
+                          job.workplace_addresses?.municipality || 
+                          job.workplace_address?.municipality}
                       </span>
                     )}
                     
@@ -225,6 +296,12 @@ export default function JobDetailsPage() {
                         paragraph.trim() ? <p key={i}>{paragraph}</p> : null
                       ))}
                     </div>
+                  ) : job.brief ? (
+                    <div className="prose max-w-none text-secondary-700">
+                      {job.brief.split('\n').map((paragraph, i) => (
+                        paragraph.trim() ? <p key={i}>{paragraph}</p> : null
+                      ))}
+                    </div>
                   ) : (
                     <p className="text-secondary-500 italic">No description provided</p>
                   )}
@@ -288,24 +365,20 @@ export default function JobDetailsPage() {
                     Apply for this job
                   </h2>
                   
-                  {job.source_links && job.source_links.length > 0 ? (
-                    <a 
-                      href={job.source_links[0].url} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="block w-full bg-gradient-to-r from-primary-600 to-primary-700 text-white font-medium py-3.5 px-5 rounded-lg text-center transition-all duration-200 shadow-soft hover:shadow-soft-md hover:-translate-y-0.5"
-                    >
-                      Apply on {job.source_links[0].label || 'Source Site'}
-                    </a>
-                  ) : job.application_details?.url ? (
-                    <a 
-                      href={job.application_details.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="block w-full bg-gradient-to-r from-primary-600 to-primary-700 text-white font-medium py-3.5 px-5 rounded-lg text-center transition-all duration-200 shadow-soft hover:shadow-soft-md hover:-translate-y-0.5"
-                    >
-                      Apply Now
-                    </a>
+                  {sourceLinks.length > 0 ? (
+                    <div className="space-y-3">
+                      {sourceLinks.map((link, index) => (
+                        <a 
+                          key={index}
+                          href={link.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="block w-full bg-gradient-to-r from-primary-600 to-primary-700 text-white font-medium py-3.5 px-5 rounded-lg text-center transition-all duration-200 shadow-soft hover:shadow-soft-md hover:-translate-y-0.5"
+                        >
+                          {link.label || 'Apply Now'}
+                        </a>
+                      ))}
+                    </div>
                   ) : job.application_details?.email ? (
                     <a 
                       href={`mailto:${job.application_details.email}?subject=Application for ${job.headline}`} 
@@ -358,17 +431,17 @@ export default function JobDetailsPage() {
                       </div>
                     )}
                     
-                    {job.description?.company_information && (
+                    {(job.description?.company_information || job.company_information) && (
                       <div>
                         <h3 className="font-medium text-secondary-700">About</h3>
-                        <p className="text-secondary-600">{job.description.company_information}</p>
+                        <p className="text-secondary-600">{job.description?.company_information || job.company_information}</p>
                       </div>
                     )}
                   </div>
                 </div>
                 
                 {/* Location Info */}
-                {job.workplace_address && (
+                {workplaceAddress && (
                   <div className="bg-white rounded-xl shadow-soft-md p-6 border border-gray-100">
                     <h2 className="text-lg font-semibold mb-4 text-secondary-800 flex items-center">
                       <svg className="w-5 h-5 mr-2 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -379,27 +452,27 @@ export default function JobDetailsPage() {
                     </h2>
                     
                     <div className="space-y-1.5 text-secondary-600">
-                      {job.workplace_address.street_address && (
-                        <p>{job.workplace_address.street_address}</p>
+                      {workplaceAddress.street_address && (
+                        <p>{workplaceAddress.street_address}</p>
                       )}
                       
-                      {(job.workplace_address.postcode || job.workplace_address.city) && (
+                      {(workplaceAddress.postcode || workplaceAddress.city) && (
                         <p>
-                          {job.workplace_address.postcode && `${job.workplace_address.postcode} `}
-                          {job.workplace_address.city}
+                          {workplaceAddress.postcode && `${workplaceAddress.postcode} `}
+                          {workplaceAddress.city}
                         </p>
                       )}
                       
-                      {job.workplace_address.municipality && (
-                        <p>{job.workplace_address.municipality}</p>
+                      {workplaceAddress.municipality && (
+                        <p>{workplaceAddress.municipality}</p>
                       )}
                       
-                      {job.workplace_address.region && (
-                        <p>{job.workplace_address.region}</p>
+                      {workplaceAddress.region && (
+                        <p>{workplaceAddress.region}</p>
                       )}
                       
-                      {job.workplace_address.country && (
-                        <p>{job.workplace_address.country}</p>
+                      {workplaceAddress.country && (
+                        <p>{workplaceAddress.country}</p>
                       )}
                     </div>
                   </div>

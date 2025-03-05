@@ -6,7 +6,7 @@ import { getPopularLocations } from '../lib/jobApi';
 export default function SearchForm({ initialValues = {} }) {
   const router = useRouter();
   const [q, setQ] = useState(initialValues.q || '');
-  const [location, setLocation] = useState(initialValues.municipality || '');
+  const [location, setLocation] = useState(initialValues.location || '');
   const [isRemote, setIsRemote] = useState(initialValues.remote === 'true');
   const [isAbroad, setIsAbroad] = useState(initialValues.abroad === 'true');
   
@@ -19,30 +19,28 @@ export default function SearchForm({ initialValues = {} }) {
     // Build query params, removing empty values
     const params = {};
     
-    // Only add non-empty values
+    // Only add non-empty values for search query
     if (q.trim()) {
       params.q = q.trim();
     }
     
-    // Handle location - check if it's a known municipality code or name
+    // Handle location search - use EITHER municipality code OR add to free text
     if (location.trim()) {
-      // Try to find a matching location from our popular locations
+      // Try to match a known municipality code
       const matchedLocation = popularLocations.find(
         loc => loc.name.toLowerCase() === location.trim().toLowerCase()
       );
       
-      if (matchedLocation) {
-        // Prefer concept ID if available, fall back to code
-        if (matchedLocation.conceptId) {
-          params.municipality = matchedLocation.conceptId;
-        } else if (matchedLocation.code) {
-          params.municipality = matchedLocation.code;
-        } else {
-          params.municipality = location.trim();
-        }
+      if (matchedLocation && matchedLocation.code) {
+        // If we found a match with a code, use the code as municipality
+        params.municipality = matchedLocation.code;
       } else {
-        // Otherwise, just pass the raw text as municipality
-        params.municipality = location.trim();
+        // For unknown locations, add it to the q parameter
+        if (params.q) {
+          params.q = `${params.q} ${location.trim()}`;
+        } else {
+          params.q = location.trim();
+        }
       }
     }
     
